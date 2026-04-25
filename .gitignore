@@ -1,0 +1,5 @@
+# Mengabaikan folder dependency yang ukurannya raksasa
+node_modules/
+
+# Mengabaikan file rahasia (password database & token)
+.env
