@@ -26,21 +26,40 @@ const guruOnly = (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/auth/login
+// POST /api/auth/login (VERSI DEBUGGING)
 // ─────────────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   try {
     const { userId, password } = req.body;
+    
     if (!userId || !password) {
       return res.status(400).json({ success: false, message: 'userId dan password wajib diisi' });
     }
-    const user = await User.findOne({ userId: userId.trim(), isActive: true }).select('+password');
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ success: false, message: 'ID atau password salah' });
+
+    // 1. Cari user TANPA mempedulikan isActive dulu
+    const user = await User.findOne({ userId: userId.trim() }).select('+password');
+    
+    // Jika ID tidak ada di database sama sekali
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'DEBUG: ID tidak ditemukan di database!' });
     }
+
+    // (Opsional) Cek status aktif
+    if (user.isActive === false) {
+      return res.status(401).json({ success: false, message: 'DEBUG: Akun dinonaktifkan!' });
+    }
+
+    // 2. Bandingkan password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'DEBUG: ID benar, tapi Password SALAH!' });
+    }
+
+    // 3. Jika ID dan Password benar, buat token
     const token = user.generateSessionToken();
     user.lastLoginAt = new Date();
     await user.save();
+
     res.status(200).json({
       success: true,
       message: 'Login berhasil',
@@ -54,8 +73,9 @@ router.post('/login', async (req, res) => {
         sessionToken: token
       }
     });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'Server Error: ' + error.message });
   }
 });
 
@@ -225,37 +245,6 @@ router.put('/ganti-password', verifyToken, async (req, res) => {
     user.mustChangePassword = false;
     await user.save();
     res.status(200).json({ success: true, message: 'Password berhasil diganti' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// ─────────────────────────────────────────────────────────────
-// DELETE /api/auth/guru/siswa/:userId
-// Menghapus akun siswa beserta seluruh jawaban & progressnya
-// ─────────────────────────────────────────────────────────────
-router.delete('/guru/siswa/:userId', verifyToken, guruOnly, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    // 1. Hapus akun dari tabel Users
-    const user = await User.findOneAndDelete({ userId: userId, role: 'siswa' });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Siswa tidak ditemukan' });
-    }
-
-    // 2. Hapus semua jawaban siswa tersebut dari tabel Answers
-    const Answer = require('../models/Answer');
-    await Answer.deleteMany({ studentId: userId });
-
-    // 3. Hapus progress siswa dari tabel Progress
-    const Progress = require('../models/Progress');
-    await Progress.findOneAndDelete({ studentId: userId });
-
-    res.status(200).json({ 
-      success: true, 
-      message: `Akun dan seluruh data jawaban ${user.fullName} berhasil dihapus permanen.` 
-    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
