@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Answer = require('../models/Answer');
 
 // ─────────────────────────────────────────────────────────────
 // MIDDLEWARE
@@ -247,6 +248,33 @@ router.put('/ganti-password', verifyToken, async (req, res) => {
     res.status(200).json({ success: true, message: 'Password berhasil diganti' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// GURU: HAPUS AKUN & DATA SISWA PERMANEN
+// ─────────────────────────────────────────────────────────────
+router.delete('/guru/siswa/:userId', verifyToken, guruOnly, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // 1. Cari dan hapus akun siswa di tabel Users
+    const deletedUser = await User.findOneAndDelete({ userId: userId, role: 'siswa' });
+
+    if (!deletedUser) {
+      return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan di database.' });
+    }
+
+    // 2. Hapus JUGA semua riwayat jawaban siswa ini di tabel Answers (Sangat Penting!)
+    await Answer.deleteMany({ studentId: userId });
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Akun ${deletedUser.fullName} dan semua rekam jejaknya berhasil dihapus!` 
+    });
+  } catch (error) {
+    console.error("Error Hapus Siswa:", error);
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan di server saat menghapus data.' });
   }
 });
 
