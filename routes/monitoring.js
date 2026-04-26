@@ -146,7 +146,7 @@ router.get('/ringkasan', verifyToken, guruOnly, async (req, res) => {
       { pertemuan: 1, screenType: 'hipotesis' },
       { pertemuan: 1, screenType: 'hipotesis_refleksi' },
       { pertemuan: 1, screenType: 'penyelidikan' },
-      ...Array.from({ length: 13 }, (_, i) => ({ pertemuan: 1, screenType: `material_mtrials_menelaah_${i + 1}` })),
+      ...Array.from({ length: 13 }, (_, i) => ({ pertemuan: 1, screenType: `material_mtrials_menelaah_p1_${i + 1}` })),
       { pertemuan: 1, screenType: 'latihan' },
       { pertemuan: 1, screenType: 'interpretasi' },
       { pertemuan: 1, screenType: 'kesimpulan' },
