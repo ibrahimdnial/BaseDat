@@ -12,9 +12,35 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/basedat_db';
 
-mongoose.connect(mongoURI)
-.then(() => console.log('✓ MongoDB connected'))
-.catch(err => console.error('✗ MongoDB connection error:', err));
+// ─── 1. SERVERLESS CONNECTION CACHE (ANTI-DISCONNECT) ─────────
+let isConnected = false;
+
+const connectDB = async () => {
+  // Jika sudah konek sebelumnya, gunakan koneksi yang ada
+  if (isConnected) {
+    return;
+  }
+  
+  // Jika belum konek (atau server baru bangun), buat koneksi baru
+  try {
+    const db = await mongoose.connect(mongoURI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+    isConnected = db.connections[0].readyState === 1;
+    console.log('✓ MongoDB connected (Serverless mode)');
+  } catch (err) {
+    console.error('✗ MongoDB connection error:', err);
+  }
+};
+
+// ─── 2. DATABASE MIDDLEWARE ───────────────────────────────────
+// Middleware ini memaksa Vercel memastikan MongoDB melek SEBELUM memproses API apapun
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
+// ──────────────────────────────────────────────────────────────
 
 // ─── ROUTES ───────────────────────────────────────────────────
 const { router: authRouter } = require('./routes/auth');
